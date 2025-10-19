@@ -92,10 +92,12 @@ start: ## 启动服务
 
 stop: ## 停止服务
 	@echo "🛑 停止 Panda 服务..."
-	@PID=$$(adb shell "ps -A | grep 'com.panda.Main' | grep -v grep | awk '{print \$$2}'" | tr -d '\r'); \
-	if [ -n "$$PID" ]; then \
-		adb shell "kill $$PID"; \
-		echo "✅ 已停止服务 (PID: $$PID)"; \
+	@PIDS=$$(adb shell "ps -ef | grep 'com.panda.Main' | grep -v grep | awk '{print \$$2}'" | tr -d '\r' | tr '\n' ' '); \
+	if [ -n "$$PIDS" ]; then \
+		for pid in $$PIDS; do \
+			adb shell "kill $$pid" 2>/dev/null; \
+		done; \
+		echo "✅ 已停止服务 (PIDs: $$PIDS)"; \
 	else \
 		echo "⚠️  服务未运行"; \
 	fi
@@ -105,7 +107,7 @@ restart: stop start  ## 重启服务
 status: ## 查看服务状态
 	@echo "📊 Panda 服务状态:"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@PID=$$(adb shell "ps -A | grep 'com.panda.Main' | grep -v grep | awk '{print \$$2}'" | tr -d '\r'); \
+	@PID=$$(adb shell "ps -ef | grep 'com.panda.Main' | grep -v grep | head -1 | awk '{print \$$2}'" | tr -d '\r'); \
 	if [ -n "$$PID" ]; then \
 		echo "  状态: ✅ 运行中"; \
 		echo "  PID: $$PID"; \
@@ -139,7 +141,7 @@ icons: forward  ## 提取所有应用图标
 
 monitor: forward  ## 启动自动点击监控
 	@echo "🤖 启动自动点击监控..."
-	@cd .. && echo "" | python3 start_autoclick.py
+	@cd .. && python3 start_autoclick.py
 
 check-monitor: forward  ## 查看监控状态
 	@cd .. && python3 check_autoclick.py

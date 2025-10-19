@@ -16,13 +16,24 @@ import java.util.regex.Pattern
  * 提供 UI 元素查找、自动点击、弹框监控等功能
  */
 @SuppressLint("PrivateApi")
-class AutoClickModule {
+class AutoClickModule private constructor() {
     
     private var uiDevice: UiDevice? = null
     private var monitorThread: Thread? = null
     @Volatile
     private var isMonitoring = false
     private val monitorKeywords = mutableSetOf<String>()
+    
+    companion object {
+        @Volatile
+        private var instance: AutoClickModule? = null
+        
+        fun getInstance(): AutoClickModule {
+            return instance ?: synchronized(this) {
+                instance ?: AutoClickModule().also { instance = it }
+            }
+        }
+    }
     
     /**
      * 获取 UiDevice 实例

@@ -25,7 +25,7 @@ class CommandDispatcher(
     private val storageModule = StorageModule()
     private val audioModule = AudioModule()
     private val systemModule = SystemModule()
-    private val autoClickModule = AutoClickModule()
+    private val autoClickModule = AutoClickModule.getInstance()
     
     /**
      * 分发命令到相应模块
