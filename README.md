@@ -152,6 +152,16 @@ class PandaClient:
         return networks
 ```
 
+### 测试套件
+
+使用 `test_panda.py` 可以对常见模块做冒烟测试，例如：
+
+- `python3 test_panda.py --tests apps` - 拉取应用列表并校验默认图标及样本应用图标
+- `python3 test_panda.py --tests wifi storage` - 分别跑 WiFi 与存储检查
+- `python3 test_panda.py --tests notifications` - 输出当前通知摘要（含动作信息）
+
+未指定 `--tests` 时，会默认执行除实验性模块以外的所有可用套件。
+
 ## 📚 文档
 
 - `README.md` - 本文件

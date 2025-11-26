@@ -18,6 +18,12 @@ import java.io.InputStream
 @SuppressLint("PrivateApi", "DiscouragedPrivateApi")
 class NotificationModule {
     
+    private val notificationListener = NotificationListener()
+    private val shellComponent = ComponentName(
+        "com.android.shell",
+        "com.android.shell.ShellNotificationListener"
+    )
+    
     private fun getNotificationManager(): Any {
         val binder = ServiceManagerMirror.getService.call("notification")
         return INotificationManagerMirror.asInterface.call(binder)
@@ -31,16 +37,15 @@ class NotificationModule {
             val nm = getNotificationManager()
             
             // 注册监听器
-            val listener = NotificationListener()
             INotificationManagerMirror.registerListener.call(
                 nm,
-                listener,
-                ComponentName("com.android.shell", "com.android.shell.ShellNotificationListener"),
+                notificationListener,
+                shellComponent,
                 -1
             )
             
             // 获取活动通知
-            val notifications = getActiveNotifications()
+            val notifications = getActiveNotifications(nm, notificationListener)
             
             // 发送通知数量
             IOUtils.writeInt(output, notifications.size)
@@ -58,7 +63,7 @@ class NotificationModule {
                 input.read()
             } finally {
                 // 取消注册监听器
-                INotificationManagerMirror.unregisterListener.call(nm, listener, -1)
+                INotificationManagerMirror.unregisterListener.call(nm, notificationListener, -1)
             }
             
         } catch (e: Exception) {
@@ -75,8 +80,11 @@ class NotificationModule {
             val key = IOUtils.readString(input)
             val nm = getNotificationManager()
             
-            val listener = NotificationListener()
-            INotificationManagerMirror.cancelNotificationsFromListener.call(nm, listener, arrayOf(key))
+            INotificationManagerMirror.cancelNotificationsFromListener.call(
+                nm,
+                notificationListener,
+                arrayOf(key)
+            )
             
             Logger.log("Cancelled notification: $key")
         } catch (e: Exception) {
@@ -93,15 +101,10 @@ class NotificationModule {
             val actionType = IOUtils.readInt(input)
             
             val nm = getNotificationManager()
-            val listener = NotificationListener()
             
             // 获取通知
-            val slice = INotificationManagerMirror.getActiveNotificationsFromListener.call(nm, listener, arrayOf(key), 0)
-            
-            // 通过反射获取 list 属性
-            val list = slice?.javaClass?.getMethod("getList")?.invoke(slice) as? List<*>
-            val notifications = list?.filterIsInstance<StatusBarNotification>()
-            val notification = notifications?.firstOrNull()
+            val notifications = getActiveNotifications(nm, notificationListener, arrayOf(key))
+            val notification = notifications.firstOrNull()
             
             if (notification == null) {
                 Logger.log("Notification not found: $key")
@@ -140,11 +143,10 @@ class NotificationModule {
     fun clearAllNotifications() {
         try {
             val nm = getNotificationManager()
-            val notifications = getActiveNotifications()
+            val notifications = getActiveNotifications(nm, notificationListener)
             
             val keys = notifications.map { it.key }.toTypedArray()
-            val listener = NotificationListener()
-            INotificationManagerMirror.cancelNotificationsFromListener.call(nm, listener, keys)
+            INotificationManagerMirror.cancelNotificationsFromListener.call(nm, notificationListener, keys)
             
             Logger.log("Cleared ${keys.size} notifications")
         } catch (e: Exception) {
@@ -155,12 +157,18 @@ class NotificationModule {
     /**
      * 获取活动通知列表
      */
-    private fun getActiveNotifications(): List<StatusBarNotification> {
+    private fun getActiveNotifications(
+        nm: Any,
+        listener: NotificationListener,
+        keys: Array<String>? = null
+    ): List<StatusBarNotification> {
         return try {
-            val nm = getNotificationManager()
-            val listener = NotificationListener()
-            
-            val slice = INotificationManagerMirror.getActiveNotificationsFromListener.call(nm, listener, null, 0)
+            val slice = INotificationManagerMirror.getActiveNotificationsFromListener.call(
+                nm,
+                listener,
+                keys,
+                0
+            )
             
             // 通过反射获取 list 属性
             val list = slice?.javaClass?.getMethod("getList")?.invoke(slice) as? List<*>

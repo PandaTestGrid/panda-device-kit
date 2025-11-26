@@ -9,7 +9,7 @@
 # 变量定义
 APK_DEBUG = app/build/outputs/apk/debug/app-debug.apk
 APK_RELEASE = app/build/outputs/apk/release/app-release.apk
-JAR_FILE = panda.jar
+JAR_FILE = panda-kit-1.0.0.jar
 DEVICE_PATH = /data/local/tmp/panda.jar
 SOCKET_NAME = panda-1.1.0
 PORT = 9999
