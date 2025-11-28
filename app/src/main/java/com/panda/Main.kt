@@ -18,30 +18,48 @@ import java.io.InputStreamReader
 object Main {
     private const val VERSION = "1.1.0"
     private const val SOCKET_NAME = "panda-$VERSION"
+    private const val ARG_CHILD = "__child__"
+    private const val ARG_DAEMON = "daemon"
+    private const val ARG_DEBUG = "debug"
     
     @JvmStatic
     fun main(args: Array<String>) {
-        if (args.isEmpty()) {
-            // 主进程 - fork 子进程
-            forkChildProcess()
-        } else {
+        val firstArg = args.firstOrNull()
+        if (firstArg == ARG_CHILD || firstArg == "fork") {
             // 子进程 - 运行服务
-            runService(args[0] == "debug")
+            val debugMode = args.contains(ARG_DEBUG) || firstArg == ARG_DEBUG
+            runService(debugMode)
+            return
+        }
+        
+        val runAsDaemon = args.contains(ARG_DAEMON)
+        val debugMode = args.contains(ARG_DEBUG)
+        
+        if (runAsDaemon) {
+            // 主进程 - 按需 fork
+            forkChildProcess(debugMode)
+        } else {
+            // 默认前台运行，便于 Ctrl+C 直接终止
+            runService(true)
         }
     }
     
-    private fun forkChildProcess() {
+    private fun forkChildProcess(debugChild: Boolean) {
         Logger.log("Main process start $VERSION")
         val classPath = System.getProperty("java.class.path") ?: ""
         Logger.log("[fork] class path: $classPath")
         
         // Fork 子进程
-        val processBuilder = ProcessBuilder(
+        val command = mutableListOf(
             "/system/bin/app_process",
             "/",
             Main::class.java.canonicalName,
-            "fork"
+            ARG_CHILD
         )
+        if (debugChild) {
+            command.add(ARG_DEBUG)
+        }
+        val processBuilder = ProcessBuilder(command)
         processBuilder.environment()["CLASSPATH"] = classPath.split(File.pathSeparator)[0]
         
         val process = processBuilder.start()

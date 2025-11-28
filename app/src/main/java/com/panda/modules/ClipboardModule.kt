@@ -40,6 +40,8 @@ class ClipboardModule {
                 return
             }
             
+            // 状态码 0 表示成功
+            IOUtils.writeInt(output, 0)
             // 写入 MIME 类型
             IOUtils.writeString(output, clipboard.mimeType)
             // 写入数据

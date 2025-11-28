@@ -9,7 +9,7 @@
 # 变量定义
 APK_DEBUG = app/build/outputs/apk/debug/app-debug.apk
 APK_RELEASE = app/build/outputs/apk/release/app-release.apk
-JAR_FILE = panda-kit-1.0.0.jar
+JAR_FILE = panda-kit.jar
 DEVICE_PATH = /data/local/tmp/panda.jar
 SOCKET_NAME = panda-1.1.0
 PORT = 9999
@@ -85,7 +85,7 @@ push: ## 推送到设备
 
 start: ## 启动服务
 	@echo "🚀 启动 Panda 服务..."
-	@adb shell "nohup sh -c 'CLASSPATH=$(DEVICE_PATH) app_process / com.panda.Main > /data/local/tmp/panda.log 2>&1' &" > /dev/null 2>&1
+	@adb shell "CLASSPATH=/data/local/tmp/panda.jar app_process / com.panda.Main daemon"
 	@sleep 2
 	@echo "✅ 服务已启动"
 	@make --no-print-directory status
@@ -103,6 +103,8 @@ stop: ## 停止服务
 	fi
 
 restart: stop start  ## 重启服务
+
+test: build package push
 
 status: ## 查看服务状态
 	@echo "📊 Panda 服务状态:"

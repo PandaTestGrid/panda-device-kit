@@ -90,10 +90,10 @@ class WiFiModule {
         IOUtils.writeInt(output, results.size)
         
         for (result in results) {
-            // 写入 SSID (去掉引号)
-            IOUtils.writeString(output, result.SSID.trim('"'))
-            // 写入 BSSID
-            IOUtils.writeString(output, result.BSSID)
+            val ssid = result.SSID?.trim('"') ?: ""
+            IOUtils.writeString(output, ssid)
+            val bssid = result.BSSID ?: ""
+            IOUtils.writeString(output, bssid)
             // 写入频率
             IOUtils.writeInt(output, result.frequency)
             // 写入 WiFi 标准
