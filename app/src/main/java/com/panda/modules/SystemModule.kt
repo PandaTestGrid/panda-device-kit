@@ -119,6 +119,66 @@ class SystemModule {
     }
     
     /**
+     * 命令 120: 截取完整屏幕（当前显示内容）
+     * 优先使用 ScreenCapture API（高性能），失败时降级到 UiAutomation API
+     */
+    fun screenshot(output: BufferedOutputStream) {
+        try {
+            val context = com.panda.utils.FakeContext.get()
+            
+            // 优先使用 ScreenCapture API
+            val pngData = com.panda.utils.ScreenCaptureHelper.captureScreen(context, 0)
+            
+            if (pngData != null) {
+                // 发送数据：先发送大小，再发送数据
+                IOUtils.writeInt(output, pngData.size)
+                output.write(pngData)
+                output.flush()
+                
+                Logger.log("Screenshot sent (ScreenCapture): ${pngData.size} bytes")
+            } else {
+                // 降级到 UiAutomation API
+                Logger.log("ScreenCapture failed, falling back to UiAutomation")
+                try {
+                    val instrumentation = com.panda.core.InstrumentShellWrapper.getInstance()
+                    val automation = instrumentation.getUiAutomation()
+                    val bitmap = automation.takeScreenshot()
+                    
+                    if (bitmap != null) {
+                        // 压缩为 PNG
+                        val byteStream = ByteArrayOutputStream()
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 90, byteStream)
+                        bitmap.recycle()
+                        
+                        // 发送数据：先发送大小，再发送数据
+                        val fallbackPngData = byteStream.toByteArray()
+                        IOUtils.writeInt(output, fallbackPngData.size)
+                        output.write(fallbackPngData)
+                        output.flush()
+                        
+                        Logger.log("Screenshot sent (UiAutomation): ${fallbackPngData.size} bytes")
+                    } else {
+                        IOUtils.writeInt(output, 0)
+                        Logger.log("Screenshot failed: bitmap is null")
+                    }
+                } catch (fallbackException: Exception) {
+                    Logger.error("UiAutomation fallback also failed", fallbackException)
+                    IOUtils.writeInt(output, 0)
+                    IOUtils.writeString(output, fallbackException.message ?: "Unknown error")
+                }
+            }
+        } catch (e: Exception) {
+            Logger.error("Error taking screenshot", e)
+            try {
+                IOUtils.writeInt(output, 0)
+                IOUtils.writeString(output, e.message ?: "Unknown error")
+            } catch (ex: Exception) {
+                // Ignore
+            }
+        }
+    }
+    
+    /**
      * 命令 100: 执行 Shell 命令并返回输出
      */
     fun executeCommand(input: InputStream, client: LocalSocket) {

@@ -26,6 +26,12 @@ class CommandDispatcher(
     private val audioModule = AudioModule()
     private val systemModule = SystemModule()
     private val autoClickModule = AutoClickModule.getInstance()
+    private val cpuModule = CpuModule()
+    private val gpuModule = GpuModule()
+    private val fpsModule = FpsModule()
+    private val memoryModule = MemoryModule()
+    private val batteryModule = BatteryModule()
+    private val networkStatsModule = NetworkStatsModule()
     
     /**
      * 分发命令到相应模块
@@ -86,11 +92,34 @@ class CommandDispatcher(
                 82 -> notificationModule.openNotification(input)
                 83 -> notificationModule.clearAllNotifications()
                 
-                // 截图 (90)
+                // 截图 (90, 120)
                 90 -> systemModule.screenshotWallpaper(output)
+                120 -> systemModule.screenshot(output)
                 
                 // Shell 命令 (100)
                 100 -> systemModule.executeCommand(input, client)
+                
+                // 性能数据采集 (200-209)
+                200 -> cpuModule.getCpuUsage(output)
+                201 -> cpuModule.getCpuCoreUsage(output)
+                202 -> cpuModule.getCpuFreq(output)
+                203 -> gpuModule.getGpuUsage(output)
+                204 -> fpsModule.getFps(output)
+                205 -> memoryModule.getMemoryUsage(input, output)
+                206 -> cpuModule.getCpuTemperature(output)
+                207 -> cpuModule.getThreadCpuUsage(input, output)
+                208 -> fpsModule.startProfiling(input, output)
+                209 -> fpsModule.stopProfiling(output)
+                
+                // 电池信息 (220-222)
+                220 -> batteryModule.getBatteryInfo(output)
+                221 -> batteryModule.getBatteryLevel(output)
+                222 -> batteryModule.isBatteryMonitoringSupported(output)
+                
+                // 网络流量统计 (230-232)
+                230 -> networkStatsModule.getNetworkUsage(input, output)
+                231 -> networkStatsModule.getTotalNetworkUsage(output)
+                232 -> networkStatsModule.getNetworkUsageByPackage(input, output)
                 
                 // 自动点击 (110-119)
                 110 -> autoClickModule.clickByText(input, output)

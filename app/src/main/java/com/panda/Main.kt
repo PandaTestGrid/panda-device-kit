@@ -147,8 +147,15 @@ object Main {
             try {
                 // 读取命令码 (4 bytes, big-endian)
                 val commandBytes = ByteArray(4)
-                val bytesRead = input.read(commandBytes)
-                if (bytesRead != 4) {
+                var offset = 0
+                while (offset < 4) {
+                    val read = input.read(commandBytes, offset, 4 - offset)
+                    if (read == -1) {
+                        break  // 连接关闭
+                    }
+                    offset += read
+                }
+                if (offset != 4) {
                     break  // 连接关闭
                 }
                 
