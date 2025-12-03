@@ -48,7 +48,7 @@ echo "✅ 服务已启动"
 # 5. 设置端口转发
 echo ""
 echo "🔌 步骤 5: 设置端口转发..."
-adb forward tcp:9999 localabstract:panda-1.1.0 > /dev/null 2>&1
+adb forward tcp:9999 localabstract:panda-1.1.0  > /dev/null 2>&1
 if [ $? -ne 0 ]; then
     echo "⚠️  端口转发可能已存在，尝试移除后重新设置..."
     adb forward --remove tcp:9999 > /dev/null 2>&1
