@@ -22,6 +22,7 @@ Panda 是一个功能强大的 Android 系统服务工具，提供应用管理�
 - 🔋 **电池信息** - 电池状态、电量、健康度
 - 📡 **网络统计** - 按应用/UID统计网络流量（WiFi/移动网络）
 - 🖱️ **自动点击** - 智能点击、坐标点击、按键模拟
+- 🔄 **反向代理** - TCP 服务器支持，实现远程访问（默认端口 43305）
 
 ## 🚀 快速开始
 
@@ -52,15 +53,50 @@ adb shell "nohup sh -c 'CLASSPATH=/data/local/tmp/panda.jar app_process / com.pa
 
 ### 连接
 
+Panda 支持两种连接方式：
+
+#### 1. LocalSocket 连接（本地）
+
 ```python
 import socket
 
 sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-sock.connect('\0panda-1.0.0')
+sock.connect('\0panda-1.1.0')
 
 # 发送命令
 sock.sendall(struct.pack('>I', command_code))
 ```
+
+#### 2. TCP 连接（反向代理，支持远程访问）
+
+Panda 内置 TCP 反向代理服务器，默认监听端口 **43305**，支持远程访问。
+
+```python
+import socket
+
+# 通过 TCP 连接（支持远程访问）
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.connect(('设备IP地址', 43305))  # 或使用 localhost:43305
+
+# 发送命令（协议与 LocalSocket 完全相同）
+sock.sendall(struct.pack('>I', command_code))
+```
+
+**配置 TCP 端口**：
+
+```bash
+# 通过命令行参数指定端口
+adb shell "CLASSPATH=/data/local/tmp/panda.jar app_process / com.panda.Main --tcp-port=9999"
+
+# 或通过环境变量
+adb shell "PANDA_TCP_PORT=9999 CLASSPATH=/data/local/tmp/panda.jar app_process / com.panda.Main"
+```
+
+**优势**：
+- ✅ 支持远程访问（不需要 ADB）
+- ✅ 跨网络使用
+- ✅ 兼容性更好
+- ✅ 协议完全兼容 LocalSocket
 
 ## 📊 API 接口
 
@@ -129,7 +165,8 @@ panda/
 ├── app/src/main/java/com/panda/
 │   ├── Main.kt                    # 主入口
 │   ├── core/
-│   │   └── CommandDispatcher.kt  # 命令分发器
+│   │   ├── CommandDispatcher.kt  # 命令分发器
+│   │   └── TcpProxyServer.kt     # TCP 反向代理服务器
 │   ├── modules/
 │   │   ├── AppModule.kt          # 应用管理
 │   │   ├── WiFiModule.kt         # WiFi管理
@@ -184,6 +221,50 @@ val bitmap = drawableToBitmap(icon, targetSize)
 - **内存监控**: PSS、PrivateDirty、SharedDirty 等详细内存信息
 - **网络统计**: 按 UID/包名统计 WiFi 和移动网络流量（需要 `READ_NETWORK_USAGE_HISTORY` 权限）
 - **电池信息**: 电池状态、电量、健康度等
+
+## 🔄 反向代理功能
+
+Panda 内置 TCP 反向代理服务器，将 TCP 请求透明转发到 LocalSocket，实现远程访问能力。
+
+### 工作原理
+
+```
+TCP 客户端 → TCP 服务器 (端口 43305) → LocalSocket (panda-1.1.0) → 命令处理
+```
+
+1. **TCP 服务器**：监听指定端口（默认 43305），接受远程连接
+2. **数据转发**：双向透明转发，TCP ↔ LocalSocket
+3. **协议兼容**：TCP 连接与 LocalSocket 使用完全相同的协议
+
+### 使用场景
+
+- ✅ **远程访问**：无需 ADB，直接通过 IP 地址访问
+- ✅ **跨网络**：支持局域网或公网访问（需配置防火墙）
+- ✅ **多客户端**：支持多个客户端同时连接
+- ✅ **兼容性**：现有客户端代码无需修改，只需更改连接方式
+
+### 配置选项
+
+**默认端口**：43305
+
+**自定义端口**：
+
+```bash
+# 方式1: 命令行参数
+adb shell "CLASSPATH=/data/local/tmp/panda.jar app_process / com.panda.Main --tcp-port=9999"
+
+# 方式2: 环境变量
+adb shell "PANDA_TCP_PORT=9999 CLASSPATH=/data/local/tmp/panda.jar app_process / com.panda.Main"
+```
+
+### 安全建议
+
+⚠️ **注意**：TCP 服务器默认监听所有网络接口，建议：
+
+1. **防火墙配置**：限制访问来源 IP
+2. **内网使用**：仅在内网环境使用
+3. **VPN 隧道**：通过 VPN 访问，增加安全性
+4. **端口选择**：使用非标准端口，避免被扫描
 
 ## 🔧 使用示例
 

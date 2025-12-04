@@ -4,6 +4,7 @@ import android.net.LocalServerSocket
 import android.net.LocalSocket
 import android.system.Os
 import com.panda.core.CommandDispatcher
+import com.panda.core.TcpProxyServer
 import com.panda.utils.Logger
 import java.io.BufferedOutputStream
 import java.io.BufferedReader
@@ -21,6 +22,8 @@ object Main {
     private const val ARG_CHILD = "__child__"
     private const val ARG_DAEMON = "daemon"
     private const val ARG_DEBUG = "debug"
+    private const val ARG_TCP_PORT = "--tcp-port"
+    private const val DEFAULT_TCP_PORT = 43305
     
     @JvmStatic
     fun main(args: Array<String>) {
@@ -28,23 +31,62 @@ object Main {
         if (firstArg == ARG_CHILD || firstArg == "fork") {
             // 子进程 - 运行服务
             val debugMode = args.contains(ARG_DEBUG) || firstArg == ARG_DEBUG
-            runService(debugMode)
+            val tcpPort = parseTcpPort(args)
+            runService(debugMode, tcpPort)
             return
         }
         
         val runAsDaemon = args.contains(ARG_DAEMON)
         val debugMode = args.contains(ARG_DEBUG)
+        val tcpPort = parseTcpPort(args)
         
         if (runAsDaemon) {
             // 主进程 - 按需 fork
-            forkChildProcess(debugMode)
+            forkChildProcess(debugMode, tcpPort)
         } else {
             // 默认前台运行，便于 Ctrl+C 直接终止
-            runService(true)
+            runService(true, tcpPort)
         }
     }
     
-    private fun forkChildProcess(debugChild: Boolean) {
+    /**
+     * 解析 TCP 端口参数
+     * 支持 --tcp-port=43305 或从环境变量 PANDA_TCP_PORT 读取
+     */
+    private fun parseTcpPort(args: Array<String>): Int {
+        // 从命令行参数解析
+        for (arg in args) {
+            if (arg.startsWith("$ARG_TCP_PORT=")) {
+                val portStr = arg.substringAfter("=")
+                try {
+                    val port = portStr.toInt()
+                    if (port > 0 && port < 65536) {
+                        return port
+                    }
+                } catch (e: Exception) {
+                    Logger.error("Invalid TCP port: $portStr", e)
+                }
+            }
+        }
+        
+        // 从环境变量读取
+        val envPort = System.getenv("PANDA_TCP_PORT")
+        if (envPort != null) {
+            try {
+                val port = envPort.toInt()
+                if (port > 0 && port < 65536) {
+                    return port
+                }
+            } catch (e: Exception) {
+                Logger.error("Invalid TCP port from environment: $envPort", e)
+            }
+        }
+        
+        // 默认端口
+        return DEFAULT_TCP_PORT
+    }
+    
+    private fun forkChildProcess(debugChild: Boolean, tcpPort: Int) {
         Logger.log("Main process start $VERSION")
         val classPath = System.getProperty("java.class.path") ?: ""
         Logger.log("[fork] class path: $classPath")
@@ -58,6 +100,9 @@ object Main {
         )
         if (debugChild) {
             command.add(ARG_DEBUG)
+        }
+        if (tcpPort != DEFAULT_TCP_PORT) {
+            command.add("$ARG_TCP_PORT=$tcpPort")
         }
         val processBuilder = ProcessBuilder(command)
         processBuilder.environment()["CLASSPATH"] = classPath.split(File.pathSeparator)[0]
@@ -80,7 +125,7 @@ object Main {
         Logger.log("Main process exit")
     }
     
-    private fun runService(debug: Boolean) {
+    private fun runService(debug: Boolean, tcpPort: Int = DEFAULT_TCP_PORT) {
         if (!debug) {
             Logger.log("Child process start")
             Os.setsid()  // 从父进程分离
@@ -90,6 +135,14 @@ object Main {
         // 设置未捕获异常处理器
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             Logger.error("Uncaught exception in $thread", throwable)
+        }
+        
+        // 启动 TCP 反向代理服务器
+        try {
+            TcpProxyServer.start(tcpPort)
+            Logger.log("TCP reverse proxy enabled on port $tcpPort")
+        } catch (e: Exception) {
+            Logger.error("Failed to start TCP proxy server", e)
         }
         
         try {
